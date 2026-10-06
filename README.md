@@ -1,6 +1,6 @@
 # Local Encode
 
-Browser-based video conversion to H.265 / HEVC using Mediabunny and WebCodecs. Files are processed locally and are not uploaded.
+The browser version uses WebCodecs, Mediabunny, and local FFmpeg fallbacks. The Windows desktop version bundles a native FFmpeg sidecar for reliable HEVC encoding without browser codec restrictions. Files are processed locally and are not uploaded.
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
@@ -43,6 +43,17 @@ The workflow in `.github/workflows/deploy.yml` deploys automatically whenever `m
 4. Push to `main`, then open the Pages URL shown in the workflow or Pages settings.
 
 The Vite base path is set automatically from the repository name during the GitHub Actions build.
+
+## Windows desktop build
+
+The Electron desktop build uses the native FFmpeg executable installed on the machine and packages it into the installer.
+
+```powershell
+npm run desktop:dev
+npm run desktop:package
+```
+
+The installer is created at `dist/Local-Encode-0.0.0-Setup.exe`. The generated `desktop/ffmpeg/ffmpeg.exe` file is ignored by Git because it is a large build artifact; run `npm run prepare:ffmpeg` again on another Windows build machine.
 
 ## Browser support
 

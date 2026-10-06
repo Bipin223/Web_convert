@@ -4,6 +4,16 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import { ALL_FORMATS, BlobSource, BufferTarget, canEncodeVideo, Conversion, Input, Mp4OutputFormat, Output, Quality } from 'mediabunny'
 import './App.css'
 
+declare global {
+  interface Window {
+    desktopAPI?: {
+      getPathForFile: (file: File) => string
+      convertVideo: (options: Record<string, string | number>) => Promise<{ outputPath: string; codec: string }>
+      readOutput: (outputPath: string) => Promise<Uint8Array>
+    }
+  }
+}
+
 type BrowserRecordingResult = { blob: Blob; mimeType: string }
 
 async function recordBrowserCompatibleVideo(
@@ -142,7 +152,23 @@ function App() {
       const targetFrameRate = frameRate === 'source' ? undefined : Number(frameRate)
       let blob: Blob | null = null
       let resultCodec = 'hevc'
-      if (await canEncodeVideo('hevc', { quality: encodingQuality })) {
+      if (window.desktopAPI) {
+        setStatus('Encoding with native FFmpeg...')
+        const nativeResult = await window.desktopAPI.convertVideo({
+          inputPath: window.desktopAPI.getPathForFile(file),
+          rateControl,
+          crf,
+          videoBitrate,
+          audioBitrate,
+          resolution,
+          frameRate,
+        })
+        const data = await window.desktopAPI.readOutput(nativeResult.outputPath)
+        blob = new Blob([data.buffer as ArrayBuffer], { type: 'video/mp4' })
+        resultCodec = nativeResult.codec
+        setOutputCodec(resultCodec)
+        setOutputName(`${sourceName}-${resultCodec}.mp4`)
+      } else if (await canEncodeVideo('hevc', { quality: encodingQuality })) {
         const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })
         const output = new Output({ format: new Mp4OutputFormat(), target: new BufferTarget() })
         const conversion = await Conversion.init({

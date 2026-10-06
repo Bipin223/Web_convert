@@ -2,12 +2,17 @@
   "name": "web-convert",
   "private": true,
   "version": "0.0.0",
+  "description": "Local browser and Windows video conversion to H.265/HEVC",
+  "author": "Bipin Rizal",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "desktop:dev": "npm run build && electron .",
+    "prepare:ffmpeg": "node scripts/prepare-ffmpeg.mjs",
+    "desktop:package": "npm run prepare:ffmpeg && npm run build && electron-builder --win"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
@@ -21,8 +26,21 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.bipin.localencode",
+    "productName": "Local Encode",
+    "files": ["dist/**/*", "electron/**/*", "package.json"],
+    "extraResources": [{ "from": "desktop/ffmpeg/ffmpeg.exe", "to": "ffmpeg/ffmpeg.exe" }],
+    "win": { "target": "nsis", "artifactName": "Local-Encode-${version}-Setup.${ext}" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true }
   }
 }
