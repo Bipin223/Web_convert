@@ -74,14 +74,25 @@ function App() {
         setOutputCodec('hevc')
         setOutputName(`${sourceName}-hevc.mp4`)
       } else {
-        setStatus('Loading the universal local fallback...')
+        setStatus('Downloading the local fallback encoder...')
+        setProgress(5)
         const ffmpeg = ffmpegRef.current
+        ffmpeg.on('log', ({ message }) => {
+          const logLine = String(message || '')
+          if (/input|output|encoder|stream|error/i.test(logLine)) setStatus(logLine.slice(-92))
+        })
         if (!ffmpeg.loaded) {
           const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm'
-          await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-          })
+          const loadEncoder = async () => {
+            const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript')
+            setStatus('Initializing the local fallback encoder...')
+            const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+            await ffmpeg.load({ coreURL, wasmURL })
+          }
+          await Promise.race([
+            loadEncoder(),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('The local encoder took too long to load')), 45000)),
+          ])
         }
         ffmpeg.on('progress', ({ progress: nextProgress }) => {
           setProgress(Math.max(0, Math.min(100, Math.round(nextProgress * 100))))
