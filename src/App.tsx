@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
-import fixWebmDuration from 'fix-webm-duration'
 import { ALL_FORMATS, BlobSource, BufferTarget, canEncodeVideo, Conversion, Input, Mp4OutputFormat, Output, Quality } from 'mediabunny'
 import './App.css'
 
@@ -57,12 +56,7 @@ async function recordBrowserCompatibleVideo(
       ...canvasStream.getVideoTracks(),
       ...captureStream.getAudioTracks(),
     ])
-    const mimeTypes = [
-      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-      'video/webm;codecs=vp9,opus',
-      'video/webm;codecs=vp8,opus',
-      'video/webm',
-    ]
+    const mimeTypes = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4']
     const mimeType = mimeTypes.find((candidate) => MediaRecorder.isTypeSupported(candidate))
     if (!mimeType) throw new Error('This browser does not expose a compatible video recorder')
 
@@ -77,17 +71,7 @@ async function recordBrowserCompatibleVideo(
     const result = await new Promise<BrowserRecordingResult>((resolve, reject) => {
       recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data) }
       recorder.onerror = () => reject(new Error('Browser recording failed'))
-      recorder.onstop = async () => {
-        try {
-          const recordedBlob = new Blob(chunks, { type: mimeType })
-          const fixedBlob = mimeType.startsWith('video/webm')
-            ? await fixWebmDuration(recordedBlob, duration * 1000, { logger: false })
-            : recordedBlob
-          resolve({ blob: fixedBlob, mimeType })
-        } catch (error) {
-          reject(error)
-        }
-      }
+      recorder.onstop = () => resolve({ blob: new Blob(chunks, { type: mimeType }), mimeType })
       recorder.start(250)
       void video.play()
 
@@ -246,13 +230,13 @@ function App() {
           const rateArgs = rateControl === 'crf' ? ['-crf', String(crf)] : ['-b:v', `${videoBitrate}k`]
           const audioArgs = ['-b:a', `${audioBitrate}k`]
           await ffmpeg.writeFile(inputName, await fetchFile(file))
-          let fallbackCodec = 'hevc'
+          let fallbackCodec = 'h264'
           try {
-            await ffmpeg.exec(['-y', '-i', inputName, '-map', '0:v:0', '-map', '0:a?', '-map', '0:s?', '-c:v', 'libx265', ...rateArgs, '-preset', 'medium', '-tag:v', 'hvc1', '-c:a', 'aac', ...audioArgs, '-c:s', 'copy', ...resizeArgs, ...frameRateArgs, '-movflags', '+faststart', 'output.mp4'])
+            await ffmpeg.exec(['-y', '-i', inputName, '-map', '0:v:0', '-map', '0:a?', '-map', '0:s?', '-c:v', 'libx264', ...rateArgs, '-preset', 'fast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', ...audioArgs, '-c:s', 'copy', ...resizeArgs, ...frameRateArgs, '-movflags', '+faststart', 'output.mp4'])
           } catch {
-            fallbackCodec = 'h264'
-            setStatus('HEVC is unavailable here. Creating a compatible H.264 MP4...')
-            await ffmpeg.exec(['-y', '-i', inputName, '-map', '0:v:0', '-map', '0:a?', '-map', '0:s?', '-c:v', 'libx264', ...rateArgs, '-preset', 'medium', '-pix_fmt', 'yuv420p', '-c:a', 'aac', ...audioArgs, '-c:s', 'copy', ...resizeArgs, ...frameRateArgs, '-movflags', '+faststart', 'output.mp4'])
+            fallbackCodec = 'hevc'
+            setStatus('H.264 is unavailable here. Trying HEVC...')
+            await ffmpeg.exec(['-y', '-i', inputName, '-map', '0:v:0', '-map', '0:a?', '-map', '0:s?', '-c:v', 'libx265', ...rateArgs, '-preset', 'fast', '-tag:v', 'hvc1', '-c:a', 'aac', ...audioArgs, '-c:s', 'copy', ...resizeArgs, ...frameRateArgs, '-movflags', '+faststart', 'output.mp4'])
           }
           resultCodec = fallbackCodec
           const data = await ffmpeg.readFile('output.mp4')

@@ -17,7 +17,6 @@
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
-    "fix-webm-duration": "^1.0.6",
     "mediabunny": "^1.61.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
