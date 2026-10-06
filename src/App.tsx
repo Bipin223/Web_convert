@@ -10,6 +10,10 @@ function App() {
   const [status, setStatus] = useState('Ready for a video')
   const [progress, setProgress] = useState(0)
   const [isBusy, setIsBusy] = useState(false)
+  const [isDark, setIsDark] = useState(() => {
+    const hour = new Date().getHours()
+    return hour >= 19 || hour < 7
+  })
 
   const chooseFile = (nextFile?: File) => {
     if (!nextFile || !nextFile.type.startsWith('video/')) {
@@ -69,10 +73,10 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${isDark ? 'dark-mode' : ''}`}>
       <header className="topbar">
         <a className="brand" href="/" aria-label="Local Encode home"><span className="brand-mark">L</span><span>LOCAL ENCODE</span></a>
-        <span className="privacy-pill"><span className="status-dot" /> DEVICE-ONLY PROCESSING</span>
+        <div className="topbar-actions"><span className="privacy-pill"><span className="status-dot" /> DEVICE-ONLY PROCESSING</span><button className="theme-toggle" type="button" onClick={() => setIsDark((current) => !current)} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>{isDark ? '☼' : '◐'}</button></div>
       </header>
       <section className="intro">
         <div className="eyebrow"><span /> H.265 / HEVC VIDEO OPTIMIZER</div>
@@ -101,7 +105,7 @@ function App() {
           {outputUrl && <a className="download-button" href={outputUrl} download={outputName}>Download {outputName} <span>↓</span></a>}
         </aside>
       </section>
-      <footer className="footer-note"><span>LOCAL ENCODE / 01</span><span>POWERED BY WEBCODECS</span><span>NO FILES UPLOADED</span></footer>
+      <footer className="footer-note">Made by Bipin Rizal</footer>
     </main>
   )
 }
