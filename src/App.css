@@ -55,7 +55,8 @@ h2 { margin: 0; color: var(--ink); font: 500 20px 'Space Grotesk'; }
 .rate-options button:hover { color: var(--purple); transform: translateY(-1px); }
 .rate-options button.active { color: #fff; background: linear-gradient(135deg, var(--purple), var(--purple-bright)); }
 .select-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--muted); font-size: 11px; }
-.select-row select { min-width: 128px; padding: 8px 25px 8px 9px; color: var(--ink); border: 1px solid #d5d8df; border-radius: 10px; outline: 0; background: rgba(255, 255, 255, .68); font: 10px 'DM Mono'; }
+.select-row select { min-width: 128px; padding: 8px 25px 8px 9px; color: var(--ink); color-scheme: light; border: 1px solid #d5d8df; border-radius: 10px; outline: 0; background: rgba(255, 255, 255, .68); font: 10px 'DM Mono'; }
+.select-row option { color: #1d1d1f; background: #fff; }
 .select-row select:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124, 58, 237, .12); }
 .convert-button, .download-button { display: flex; justify-content: space-between; align-items: center; padding: 16px 17px; border-radius: 14px; text-decoration: none; font: 600 13px 'Space Grotesk'; transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s, background .25s; }
 .convert-button { color: #fff; background: linear-gradient(135deg, var(--purple), var(--purple-bright)); border: 0; box-shadow: 0 9px 18px rgba(124, 58, 237, .22); }
@@ -80,7 +81,8 @@ h2 { margin: 0; color: var(--ink); font: 500 20px 'Space Grotesk'; }
 .dark-mode .quality-options button { border-color: #51495d; }
 .dark-mode .rate-options { border-color: #51495d; background: rgba(255, 255, 255, .04); }
 .dark-mode .rate-options button { border-color: #51495d; }
-.dark-mode .select-row select { color: var(--ink); border-color: #51495d; background: rgba(255, 255, 255, .07); }
+.dark-mode .select-row select { color: var(--ink); color-scheme: dark; border-color: #51495d; background: rgba(255, 255, 255, .07); }
+.dark-mode .select-row option { color: #f6f4ff; background: #211a2e; }
 .dark-mode .progress-track { background: #3a3344; }
 .dark-mode .download-button:hover { background: #3b2859; }
 @keyframes rise-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
