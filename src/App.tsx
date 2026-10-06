@@ -4,6 +4,95 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import { ALL_FORMATS, BlobSource, BufferTarget, canEncodeVideo, Conversion, Input, Mp4OutputFormat, Output, Quality } from 'mediabunny'
 import './App.css'
 
+type BrowserRecordingResult = { blob: Blob; mimeType: string }
+
+async function recordBrowserCompatibleVideo(
+  file: File,
+  requestedWidth: number | undefined,
+  requestedFrameRate: number | undefined,
+  videoBitrate: number,
+  audioBitrate: number,
+  onProgress: (value: number) => void,
+): Promise<BrowserRecordingResult> {
+  const video = document.createElement('video')
+  const videoWithCapture = video as HTMLVideoElement & {
+    captureStream?: () => MediaStream
+    mozCaptureStream?: () => MediaStream
+  }
+  const sourceUrl = URL.createObjectURL(file)
+  video.src = sourceUrl
+  video.muted = true
+  video.playsInline = true
+  video.preload = 'auto'
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve()
+      video.onerror = () => reject(new Error('This browser cannot decode the selected video'))
+    })
+
+    const width = requestedWidth || video.videoWidth || 1280
+    const height = Math.max(2, Math.round((width * (video.videoHeight || 720)) / (video.videoWidth || 1280) / 2) * 2)
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    const captureStream = videoWithCapture.captureStream?.() || videoWithCapture.mozCaptureStream?.()
+    if (!context || !captureStream) throw new Error('This browser does not support local media capture')
+
+    const frameRate = requestedFrameRate || 30
+    const canvasStream = canvas.captureStream(frameRate)
+    const combinedStream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...captureStream.getAudioTracks(),
+    ])
+    const mimeTypes = [
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+    ]
+    const mimeType = mimeTypes.find((candidate) => MediaRecorder.isTypeSupported(candidate))
+    if (!mimeType) throw new Error('This browser does not expose a compatible video recorder')
+
+    const chunks: Blob[] = []
+    const recorder = new MediaRecorder(combinedStream, {
+      mimeType,
+      videoBitsPerSecond: videoBitrate * 1000,
+      audioBitsPerSecond: audioBitrate * 1000,
+    })
+    const duration = Math.max(video.duration, 0.1)
+    let animationFrame = 0
+    const result = await new Promise<BrowserRecordingResult>((resolve, reject) => {
+      recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data) }
+      recorder.onerror = () => reject(new Error('Browser recording failed'))
+      recorder.onstop = () => resolve({ blob: new Blob(chunks, { type: mimeType }), mimeType })
+      recorder.start(250)
+      void video.play()
+
+      const drawFrame = () => {
+        if (video.ended || video.currentTime >= duration) {
+          cancelAnimationFrame(animationFrame)
+          recorder.stop()
+          return
+        }
+        context.drawImage(video, 0, 0, width, height)
+        onProgress(Math.round((video.currentTime / duration) * 100))
+        animationFrame = requestAnimationFrame(drawFrame)
+      }
+      drawFrame()
+    })
+
+    combinedStream.getTracks().forEach((track) => track.stop())
+    captureStream.getTracks().forEach((track) => track.stop())
+    return result
+  } finally {
+    video.pause()
+    video.removeAttribute('src')
+    URL.revokeObjectURL(sourceUrl)
+  }
+}
+
 function App() {
   const ffmpegRef = useRef(new FFmpeg())
   const [file, setFile] = useState<File | null>(null)
@@ -125,8 +214,23 @@ function App() {
       setStatus(resultCodec === 'h264' ? 'Done. A compatible H.264 file is ready.' : 'Done. Your HEVC file is ready.')
     } catch (error) {
       console.error(error)
-      setStatus('This browser could not encode the file locally. Try a smaller video or a modern desktop browser.')
-      setProgress(0)
+      try {
+        setStatus('Using the browser compatibility recorder...')
+        const compatibilityWidth = resolution === 'source' ? undefined : Number(resolution)
+        const compatibilityFrameRate = frameRate === 'source' ? undefined : Number(frameRate)
+        const browserResult = await recordBrowserCompatibleVideo(file, compatibilityWidth, compatibilityFrameRate, Number(videoBitrate), Number(audioBitrate), setProgress)
+        const isMp4 = browserResult.mimeType.startsWith('video/mp4')
+        const browserCodec = isMp4 ? 'h264' : 'webm'
+        setOutputCodec(browserCodec)
+        setOutputName(`${sourceName}-${browserCodec}.${isMp4 ? 'mp4' : 'webm'}`)
+        setOutputUrl(URL.createObjectURL(browserResult.blob))
+        setProgress(100)
+        setStatus(isMp4 ? 'Done. A compatible H.264 MP4 is ready.' : 'Done. A compatible WebM file is ready.')
+      } catch (fallbackError) {
+        console.error(fallbackError)
+        setStatus('This browser cannot decode or record this video locally.')
+        setProgress(0)
+      }
     } finally {
       setIsBusy(false)
     }
