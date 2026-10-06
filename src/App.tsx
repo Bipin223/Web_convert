@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
+import fixWebmDuration from 'fix-webm-duration'
 import { ALL_FORMATS, BlobSource, BufferTarget, canEncodeVideo, Conversion, Input, Mp4OutputFormat, Output, Quality } from 'mediabunny'
 import './App.css'
 
@@ -76,7 +77,17 @@ async function recordBrowserCompatibleVideo(
     const result = await new Promise<BrowserRecordingResult>((resolve, reject) => {
       recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data) }
       recorder.onerror = () => reject(new Error('Browser recording failed'))
-      recorder.onstop = () => resolve({ blob: new Blob(chunks, { type: mimeType }), mimeType })
+      recorder.onstop = async () => {
+        try {
+          const recordedBlob = new Blob(chunks, { type: mimeType })
+          const fixedBlob = mimeType.startsWith('video/webm')
+            ? await fixWebmDuration(recordedBlob, duration * 1000, { logger: false })
+            : recordedBlob
+          resolve({ blob: fixedBlob, mimeType })
+        } catch (error) {
+          reject(error)
+        }
+      }
       recorder.start(250)
       void video.play()
 

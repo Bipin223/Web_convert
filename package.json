@@ -17,6 +17,7 @@
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "fix-webm-duration": "^1.0.6",
     "mediabunny": "^1.61.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
@@ -26,8 +27,6 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
-    "electron": "^39.2.7",
-    "electron-builder": "^26.0.12",
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
     "oxlint": "^1.81.0",
@@ -38,9 +37,24 @@
   "build": {
     "appId": "com.bipin.localencode",
     "productName": "Local Encode",
-    "files": ["dist/**/*", "electron/**/*", "package.json"],
-    "extraResources": [{ "from": "desktop/ffmpeg/ffmpeg.exe", "to": "ffmpeg/ffmpeg.exe" }],
-    "win": { "target": "nsis", "artifactName": "Local-Encode-${version}-Setup.${ext}" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true }
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "desktop/ffmpeg/ffmpeg.exe",
+        "to": "ffmpeg/ffmpeg.exe"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "Local-Encode-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
