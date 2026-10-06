@@ -140,7 +140,7 @@ function App() {
         : new Quality({ bitrate: Number(videoBitrate) * 1000, bitrateMode: 'variable' })
       const targetWidth = resolution === 'source' ? undefined : Number(resolution)
       const targetFrameRate = frameRate === 'source' ? undefined : Number(frameRate)
-      let blob: Blob
+      let blob: Blob | null = null
       let resultCodec = 'hevc'
       if (await canEncodeVideo('hevc', { quality: encodingQuality })) {
         const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })
@@ -163,14 +163,29 @@ function App() {
         setOutputCodec('hevc')
         setOutputName(`${sourceName}-hevc.mp4`)
       } else {
-        setStatus('Downloading the local fallback encoder...')
-        setProgress(5)
-        const ffmpeg = ffmpegRef.current
-        ffmpeg.on('log', ({ message }) => {
-          const logLine = String(message || '')
-          if (/input|output|encoder|stream|error/i.test(logLine)) setStatus(logLine.slice(-92))
-        })
-        if (!ffmpeg.loaded) {
+        let browserRecorded = false
+        try {
+          setStatus('Using the fast browser compatibility recorder...')
+          const browserResult = await recordBrowserCompatibleVideo(file, targetWidth, targetFrameRate, Number(videoBitrate), Number(audioBitrate), setProgress)
+          const isMp4 = browserResult.mimeType.startsWith('video/mp4')
+          resultCodec = isMp4 ? 'h264' : 'webm'
+          blob = browserResult.blob
+          setOutputCodec(resultCodec)
+          setOutputName(`${sourceName}-${resultCodec}.${isMp4 ? 'mp4' : 'webm'}`)
+          browserRecorded = true
+        } catch (browserError) {
+          console.warn('Browser compatibility recorder unavailable', browserError)
+        }
+
+        if (!browserRecorded) {
+          setStatus('Downloading the local fallback encoder...')
+          setProgress(5)
+          const ffmpeg = ffmpegRef.current
+          ffmpeg.on('log', ({ message }) => {
+            const logLine = String(message || '')
+            if (/input|output|encoder|stream|error/i.test(logLine)) setStatus(logLine.slice(-92))
+          })
+          if (!ffmpeg.loaded) {
           const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm'
           const loadEncoder = async () => {
             const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript')
@@ -182,33 +197,35 @@ function App() {
             loadEncoder(),
             new Promise<never>((_, reject) => setTimeout(() => reject(new Error('The local encoder took too long to load')), 45000)),
           ])
+          }
+          ffmpeg.on('progress', ({ progress: nextProgress }) => {
+            setProgress(Math.max(0, Math.min(100, Math.round(nextProgress * 100))))
+            setStatus('Encoding locally with FFmpeg WASM...')
+          })
+          const inputExtension = file.name.split('.').pop()?.toLowerCase() || 'mp4'
+          const inputName = `input.${inputExtension}`
+          const resizeArgs = targetWidth ? ['-vf', `scale=${targetWidth}:-2`] : []
+          const frameRateArgs = targetFrameRate ? ['-r', String(targetFrameRate)] : []
+          const rateArgs = rateControl === 'crf' ? ['-crf', String(crf)] : ['-b:v', `${videoBitrate}k`]
+          const audioArgs = ['-b:a', `${audioBitrate}k`]
+          await ffmpeg.writeFile(inputName, await fetchFile(file))
+          let fallbackCodec = 'hevc'
+          try {
+            await ffmpeg.exec(['-y', '-i', inputName, '-map', '0:v:0', '-map', '0:a?', '-map', '0:s?', '-c:v', 'libx265', ...rateArgs, '-preset', 'medium', '-tag:v', 'hvc1', '-c:a', 'aac', ...audioArgs, '-c:s', 'copy', ...resizeArgs, ...frameRateArgs, '-movflags', '+faststart', 'output.mp4'])
+          } catch {
+            fallbackCodec = 'h264'
+            setStatus('HEVC is unavailable here. Creating a compatible H.264 MP4...')
+            await ffmpeg.exec(['-y', '-i', inputName, '-map', '0:v:0', '-map', '0:a?', '-map', '0:s?', '-c:v', 'libx264', ...rateArgs, '-preset', 'medium', '-pix_fmt', 'yuv420p', '-c:a', 'aac', ...audioArgs, '-c:s', 'copy', ...resizeArgs, ...frameRateArgs, '-movflags', '+faststart', 'output.mp4'])
+          }
+          resultCodec = fallbackCodec
+          const data = await ffmpeg.readFile('output.mp4')
+          const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data
+          blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'video/mp4' })
+          setOutputCodec(fallbackCodec)
+          setOutputName(`${sourceName}-${fallbackCodec}.mp4`)
         }
-        ffmpeg.on('progress', ({ progress: nextProgress }) => {
-          setProgress(Math.max(0, Math.min(100, Math.round(nextProgress * 100))))
-          setStatus('Encoding locally with FFmpeg WASM...')
-        })
-        const inputExtension = file.name.split('.').pop()?.toLowerCase() || 'mp4'
-        const inputName = `input.${inputExtension}`
-        const resizeArgs = targetWidth ? ['-vf', `scale=${targetWidth}:-2`] : []
-        const frameRateArgs = targetFrameRate ? ['-r', String(targetFrameRate)] : []
-        const rateArgs = rateControl === 'crf' ? ['-crf', String(crf)] : ['-b:v', `${videoBitrate}k`]
-        const audioArgs = ['-b:a', `${audioBitrate}k`]
-        await ffmpeg.writeFile(inputName, await fetchFile(file))
-        let fallbackCodec = 'hevc'
-        try {
-          await ffmpeg.exec(['-y', '-i', inputName, '-map', '0:v:0', '-map', '0:a?', '-map', '0:s?', '-c:v', 'libx265', ...rateArgs, '-preset', 'medium', '-tag:v', 'hvc1', '-c:a', 'aac', ...audioArgs, '-c:s', 'copy', ...resizeArgs, ...frameRateArgs, '-movflags', '+faststart', 'output.mp4'])
-        } catch {
-          fallbackCodec = 'h264'
-          setStatus('HEVC is unavailable here. Creating a compatible H.264 MP4...')
-          await ffmpeg.exec(['-y', '-i', inputName, '-map', '0:v:0', '-map', '0:a?', '-map', '0:s?', '-c:v', 'libx264', ...rateArgs, '-preset', 'medium', '-pix_fmt', 'yuv420p', '-c:a', 'aac', ...audioArgs, '-c:s', 'copy', ...resizeArgs, ...frameRateArgs, '-movflags', '+faststart', 'output.mp4'])
-        }
-        resultCodec = fallbackCodec
-        const data = await ffmpeg.readFile('output.mp4')
-        const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data
-        blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'video/mp4' })
-        setOutputCodec(fallbackCodec)
-        setOutputName(`${sourceName}-${fallbackCodec}.mp4`)
       }
+      if (!blob) throw new Error('No output file was produced')
       setOutputUrl(URL.createObjectURL(blob))
       setProgress(100)
       setStatus(resultCodec === 'h264' ? 'Done. A compatible H.264 file is ready.' : 'Done. Your HEVC file is ready.')
