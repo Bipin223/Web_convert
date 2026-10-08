@@ -2,7 +2,7 @@
   "name": "web-convert",
   "private": true,
   "version": "0.0.0",
-  "description": "Local browser and Windows video conversion to H.265/HEVC",
+  "description": "Rizal_convert browser and Windows video conversion to H.265/HEVC",
   "author": "Bipin Rizal",
   "type": "module",
   "scripts": {
@@ -35,7 +35,7 @@
   "main": "electron/main.cjs",
   "build": {
     "appId": "com.bipin.localencode",
-    "productName": "Local Encode",
+    "productName": "Rizal_convert",
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -49,7 +49,7 @@
     ],
     "win": {
       "target": "nsis",
-      "artifactName": "Local-Encode-${version}-Setup.${ext}"
+      "artifactName": "Rizal_convert-${version}-Setup.${ext}"
     },
     "nsis": {
       "oneClick": false,

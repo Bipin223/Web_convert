@@ -277,7 +277,7 @@ function App() {
   return (
     <main className={`app-shell ${isDark ? 'dark-mode' : ''}`}>
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Local Encode home"><span className="brand-mark">L</span><span>LOCAL ENCODE</span></a>
+        <a className="brand" href="/" aria-label="Rizal_convert home"><span className="brand-mark">R</span><span>RIZAL_CONVERT</span></a>
         <div className="topbar-actions"><span className="privacy-pill"><span className="status-dot" /> DEVICE-ONLY PROCESSING</span><button className="theme-toggle" type="button" onClick={() => setIsDark((current) => !current)} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>{isDark ? '☼' : '◐'}</button></div>
       </header>
       <section className="intro">
