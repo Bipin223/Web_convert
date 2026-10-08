@@ -283,7 +283,6 @@ function App() {
       <section className="intro">
         <div className="eyebrow"><span /> H.265 / HEVC VIDEO OPTIMIZER</div>
         <h1>Make your video<br /><em>lighter.</em></h1>
-        <p>Convert video to efficient HEVC right in your browser. Your original file never leaves this device.</p>
       </section>
       <section className="workspace" aria-label="Video converter">
         <div className="upload-panel">
